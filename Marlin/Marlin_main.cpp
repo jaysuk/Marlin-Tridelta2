@@ -61,8 +61,6 @@
 #include <SPI.h>
 #endif
 
-#define VERSION_STRING  "1.0.0"
-
 // look here for descriptions of G-codes: http://linuxcnc.org/handbook/gcode/g-code.html
 // http://objects.reprap.org/wiki/Mendel_User_Manual:_RepRapGCodes
 
@@ -212,6 +210,9 @@ int extruder_multiply[EXTRUDERS] = {100
     , 100
     #if EXTRUDERS > 2
       , 100
+	    #if EXTRUDERS > 3
+      	, 100
+	    #endif
     #endif
   #endif
 };
@@ -221,6 +222,9 @@ float filament_size[EXTRUDERS] = { DEFAULT_NOMINAL_FILAMENT_DIA
       , DEFAULT_NOMINAL_FILAMENT_DIA
     #if EXTRUDERS > 2
        , DEFAULT_NOMINAL_FILAMENT_DIA
+      #if EXTRUDERS > 3
+        , DEFAULT_NOMINAL_FILAMENT_DIA
+      #endif
     #endif
   #endif
 };
@@ -229,6 +233,9 @@ float volumetric_multiplier[EXTRUDERS] = {1.0
     , 1.0
     #if EXTRUDERS > 2
       , 1.0
+      #if EXTRUDERS > 3
+        , 1.0
+      #endif
     #endif
   #endif
 };
@@ -271,19 +278,25 @@ int EtoPPressure=0;
   bool autoretract_enabled=false;
   bool retracted[EXTRUDERS]={false
     #if EXTRUDERS > 1
-    , false
-     #if EXTRUDERS > 2
       , false
-     #endif
-  #endif
+      #if EXTRUDERS > 2
+        , false
+        #if EXTRUDERS > 3
+       	  , false
+      	#endif
+      #endif
+    #endif
   };
   bool retracted_swap[EXTRUDERS]={false
     #if EXTRUDERS > 1
-    , false
-     #if EXTRUDERS > 2
       , false
-     #endif
-  #endif
+      #if EXTRUDERS > 2
+        , false
+        #if EXTRUDERS > 3
+       	  , false
+      	#endif
+      #endif
+    #endif
   };
 
   float retract_length = RETRACT_LENGTH;
@@ -293,7 +306,7 @@ int EtoPPressure=0;
   float retract_recover_length = RETRACT_RECOVER_LENGTH;
   float retract_recover_length_swap = RETRACT_RECOVER_LENGTH_SWAP;
   float retract_recover_feedrate = RETRACT_RECOVER_FEEDRATE;
-#endif
+#endif // FWRETRACT
 
 #ifdef ULTIPANEL
   #ifdef PS_DEFAULT_OFF
@@ -572,7 +585,7 @@ void setup()
   MCUSR=0;
 
   SERIAL_ECHOPGM(MSG_MARLIN);
-  SERIAL_ECHOLNPGM(VERSION_STRING);
+  SERIAL_ECHOLNPGM(STRING_VERSION);
   #ifdef STRING_VERSION_CONFIG_H
     #ifdef STRING_CONFIG_H_AUTHOR
       SERIAL_ECHO_START;
@@ -582,8 +595,8 @@ void setup()
       SERIAL_ECHOLNPGM(STRING_CONFIG_H_AUTHOR);
       SERIAL_ECHOPGM("Compiled: ");
       SERIAL_ECHOLNPGM(__DATE__);
-    #endif
-  #endif
+    #endif // STRING_CONFIG_H_AUTHOR
+  #endif // STRING_VERSION_CONFIG_H
   SERIAL_ECHO_START;
   SERIAL_ECHOPGM(MSG_FREE_MEMORY);
   SERIAL_ECHO(freeMemory());
@@ -1150,18 +1163,20 @@ static void retract_z_probe() {
 }
 
 /// Probe bed height at position (x,y), returns the measured z value
-static float probe_pt(float x, float y, float z_before) {
+static float probe_pt(float x, float y, float z_before, int retract_action=0) {
   // move to right place
   do_blocking_move_to(current_position[X_AXIS], current_position[Y_AXIS], z_before);
   do_blocking_move_to(x - X_PROBE_OFFSET_FROM_EXTRUDER, y - Y_PROBE_OFFSET_FROM_EXTRUDER, current_position[Z_AXIS]);
 
 #ifndef Z_PROBE_SLED
-  engage_z_probe();   // Engage Z Servo endstop if available
+   if ((retract_action==0) || (retract_action==1)) 
+     engage_z_probe();   // Engage Z Servo endstop if available
 #endif // Z_PROBE_SLED
   run_z_probe();
   float measured_z = current_position[Z_AXIS];
 #ifndef Z_PROBE_SLED
-  retract_z_probe();
+  if ((retract_action==0) || (retract_action==3)) 
+     retract_z_probe();
 #endif // Z_PROBE_SLED
 
   SERIAL_PROTOCOLPGM(MSG_BED);
@@ -1750,7 +1765,22 @@ void process_commands()
                   z_before = current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS;
                 }
 
-                float measured_z = probe_pt(xProbe, yProbe, z_before);
+                float measured_z;
+                //Enhanced G29 - Do not retract servo between probes
+                if (code_seen('E') || code_seen('e') )
+                   {
+                   if ((yProbe==FRONT_PROBE_BED_POSITION) && (xCount==0))
+                       {
+                        measured_z = probe_pt(xProbe, yProbe, z_before,1);
+                       } else if ((yProbe==FRONT_PROBE_BED_POSITION + (yGridSpacing * (AUTO_BED_LEVELING_GRID_POINTS-1))) && (xCount == AUTO_BED_LEVELING_GRID_POINTS-1))
+                         {
+                         measured_z = probe_pt(xProbe, yProbe, z_before,3);
+                         } else {
+                           measured_z = probe_pt(xProbe, yProbe, z_before,2);
+                         }
+                    } else {
+                    measured_z = probe_pt(xProbe, yProbe, z_before);
+                    }
 
                 eqnBVector[probePointCounter] = measured_z;
 
@@ -1781,15 +1811,30 @@ void process_commands()
 #else // AUTO_BED_LEVELING_GRID not defined
 
             // Probe at 3 arbitrary points
-            // probe 1
-            float z_at_pt_1 = probe_pt(ABL_PROBE_PT_1_X, ABL_PROBE_PT_1_Y, Z_RAISE_BEFORE_PROBING);
+            // Enhanced G29
+            
+            float z_at_pt_1,z_at_pt_2,z_at_pt_3;
+            
+            if (code_seen('E') || code_seen('e') )
+               {
+               // probe 1               
+                z_at_pt_1 = probe_pt(ABL_PROBE_PT_1_X, ABL_PROBE_PT_1_Y, Z_RAISE_BEFORE_PROBING,1);
+               // probe 2
+                z_at_pt_2 = probe_pt(ABL_PROBE_PT_2_X, ABL_PROBE_PT_2_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS,2);
+               // probe 3
+                z_at_pt_3 = probe_pt(ABL_PROBE_PT_3_X, ABL_PROBE_PT_3_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS,3); 
+               }
+               else 
+               {
+	        // probe 1
+	        float z_at_pt_1 = probe_pt(ABL_PROBE_PT_1_X, ABL_PROBE_PT_1_Y, Z_RAISE_BEFORE_PROBING);
 
-            // probe 2
-            float z_at_pt_2 = probe_pt(ABL_PROBE_PT_2_X, ABL_PROBE_PT_2_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS);
+                // probe 2
+                float z_at_pt_2 = probe_pt(ABL_PROBE_PT_2_X, ABL_PROBE_PT_2_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS);
 
-            // probe 3
-            float z_at_pt_3 = probe_pt(ABL_PROBE_PT_3_X, ABL_PROBE_PT_3_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS);
-
+                // probe 3
+                float z_at_pt_3 = probe_pt(ABL_PROBE_PT_3_X, ABL_PROBE_PT_3_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS);
+               }
             clean_up_after_endstop_move();
 
             set_bed_level_equation_3pts(z_at_pt_1, z_at_pt_2, z_at_pt_3);
@@ -2849,29 +2894,32 @@ Sigma_Exit:
 
         float area = .0;
         if(code_seen('D')) {
-		  float diameter = (float)code_value();
-		  if (diameter == 0.0) {
-			// setting any extruder filament size disables volumetric on the assumption that
-			// slicers either generate in extruder values as cubic mm or as as filament feeds
-			// for all extruders
-		    volumetric_enabled = false;
-		  } else {
+          float diameter = (float)code_value();
+          if (diameter == 0.0) {
+            // setting any extruder filament size disables volumetric on the assumption that
+            // slicers either generate in extruder values as cubic mm or as as filament feeds
+            // for all extruders
+            volumetric_enabled = false;
+          } else {
             filament_size[tmp_extruder] = (float)code_value();
-			// make sure all extruders have some sane value for the filament size
-			filament_size[0] = (filament_size[0] == 0.0 ? DEFAULT_NOMINAL_FILAMENT_DIA : filament_size[0]);
-            #if EXTRUDERS > 1
-			filament_size[1] = (filament_size[1] == 0.0 ? DEFAULT_NOMINAL_FILAMENT_DIA : filament_size[1]);
-            #if EXTRUDERS > 2
-			filament_size[2] = (filament_size[2] == 0.0 ? DEFAULT_NOMINAL_FILAMENT_DIA : filament_size[2]);
-            #endif
-            #endif
-			volumetric_enabled = true;
-		  }
+            // make sure all extruders have some sane value for the filament size
+            filament_size[0] = (filament_size[0] == 0.0 ? DEFAULT_NOMINAL_FILAMENT_DIA : filament_size[0]);
+#if EXTRUDERS > 1
+            filament_size[1] = (filament_size[1] == 0.0 ? DEFAULT_NOMINAL_FILAMENT_DIA : filament_size[1]);
+#if EXTRUDERS > 2
+            filament_size[2] = (filament_size[2] == 0.0 ? DEFAULT_NOMINAL_FILAMENT_DIA : filament_size[2]);
+#if EXTRUDERS > 3
+            filament_size[3] = (filament_size[3] == 0.0 ? DEFAULT_NOMINAL_FILAMENT_DIA : filament_size[3]);
+#endif //EXTRUDERS > 3
+#endif //EXTRUDERS > 2
+#endif //EXTRUDERS > 1
+            volumetric_enabled = true;
+          }
         } else {
           //reserved for setting filament diameter via UFID or filament measuring device
           break;
         }
-		calculate_volumetric_multipliers();
+        calculate_volumetric_multipliers();
       }
       break;
     case 201: // M201
@@ -2988,23 +3036,29 @@ Sigma_Exit:
           {
             autoretract_enabled=false;
             retracted[0]=false;
-            #if EXTRUDERS > 1
-              retracted[1]=false;
-            #endif
-            #if EXTRUDERS > 2
-              retracted[2]=false;
-            #endif
+#if EXTRUDERS > 1
+            retracted[1]=false;
+#endif
+#if EXTRUDERS > 2
+            retracted[2]=false;
+#endif
+#if EXTRUDERS > 3
+            retracted[3]=false;
+#endif
           }break;
           case 1: 
           {
             autoretract_enabled=true;
             retracted[0]=false;
-            #if EXTRUDERS > 1
-              retracted[1]=false;
-            #endif
-            #if EXTRUDERS > 2
-              retracted[2]=false;
-            #endif
+#if EXTRUDERS > 1
+            retracted[1]=false;
+#endif
+#if EXTRUDERS > 2
+            retracted[2]=false;
+#endif
+#if EXTRUDERS > 3
+            retracted[3]=false;
+#endif
           }break;
           default:
             SERIAL_ECHO_START;
@@ -3196,30 +3250,52 @@ Sigma_Exit:
     #endif // M300
 
     #ifdef PIDTEMP
-    case 301: // M301
-      {
-        if(code_seen('P')) Kp = code_value();
-        if(code_seen('I')) Ki = scalePID_i(code_value());
-        if(code_seen('D')) Kd = scalePID_d(code_value());
+	case 301: // M301
+	{
 
-        #ifdef PID_ADD_EXTRUSION_RATE
-        if(code_seen('C')) Kc = code_value();
-        #endif
+		// multi-extruder PID patch: M301 updates or prints a single extruder's PID values
+		// default behaviour (omitting E parameter) is to update for extruder 0 only
+		int e = 0; // extruder being updated
+		if (code_seen('E'))
+		{
+			e = (int)code_value();
+		}
+		if (e < EXTRUDERS) // catch bad input value
+		{
 
-        updatePID();
-        SERIAL_PROTOCOL(MSG_OK);
-        SERIAL_PROTOCOL(" p:");
-        SERIAL_PROTOCOL(Kp);
-        SERIAL_PROTOCOL(" i:");
-        SERIAL_PROTOCOL(unscalePID_i(Ki));
-        SERIAL_PROTOCOL(" d:");
-        SERIAL_PROTOCOL(unscalePID_d(Kd));
-        #ifdef PID_ADD_EXTRUSION_RATE
-        SERIAL_PROTOCOL(" c:");
-        //Kc does not have scaling applied above, or in resetting defaults
-        SERIAL_PROTOCOL(Kc);
-        #endif
-        SERIAL_PROTOCOLLN("");
+			if (code_seen('P')) PID_PARAM(Kp,e) = code_value();
+			if (code_seen('I')) PID_PARAM(Ki,e) = scalePID_i(code_value());
+			if (code_seen('D')) PID_PARAM(Kd,e) = scalePID_d(code_value());
+			#ifdef PID_ADD_EXTRUSION_RATE
+			if (code_seen('C')) PID_PARAM(Kc,e) = code_value();
+			#endif			
+
+			updatePID();
+			SERIAL_PROTOCOL(MSG_OK);
+            #ifdef PID_PARAMS_PER_EXTRUDER
+			  SERIAL_PROTOCOL(" e:"); // specify extruder in serial output
+			  SERIAL_PROTOCOL(e);
+            #endif // PID_PARAMS_PER_EXTRUDER
+			SERIAL_PROTOCOL(" p:");
+			SERIAL_PROTOCOL(PID_PARAM(Kp,e));
+			SERIAL_PROTOCOL(" i:");
+			SERIAL_PROTOCOL(unscalePID_i(PID_PARAM(Ki,e)));
+			SERIAL_PROTOCOL(" d:");
+			SERIAL_PROTOCOL(unscalePID_d(PID_PARAM(Kd,e)));
+			#ifdef PID_ADD_EXTRUSION_RATE
+			SERIAL_PROTOCOL(" c:");
+			//Kc does not have scaling applied above, or in resetting defaults
+			SERIAL_PROTOCOL(PID_PARAM(Kc,e));
+			#endif
+			SERIAL_PROTOCOLLN("");
+		
+		}
+		else
+		{
+			SERIAL_ECHO_START;
+			SERIAL_ECHOLN(MSG_INVALID_EXTRUDER);
+		}
+
       }
       break;
     #endif //PIDTEMP
@@ -4626,7 +4702,10 @@ void calculate_volumetric_multipliers() {
 	volumetric_multiplier[1] = calculate_volumetric_multiplier(filament_size[1]);
 #if EXTRUDERS > 2
 	volumetric_multiplier[2] = calculate_volumetric_multiplier(filament_size[2]);
-#endif
-#endif
+#if EXTRUDERS > 3
+	volumetric_multiplier[3] = calculate_volumetric_multiplier(filament_size[3]);
+#endif //EXTRUDERS > 3
+#endif //EXTRUDERS > 2
+#endif //EXTRUDERS > 1
 }
 
