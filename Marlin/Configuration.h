@@ -3,6 +3,20 @@
 
 #include "boards.h"
 
+//===========================================================================
+//============================= Getting Started =============================
+//===========================================================================
+/*
+Here are some standard links for getting your machine calibrated:
+ * http://reprap.org/wiki/Calibration 
+ * http://youtu.be/wAL9d7FgInk
+ * http://calculator.josefprusa.cz
+ * http://reprap.org/wiki/Triffid_Hunter%27s_Calibration_Guide
+ * http://www.thingiverse.com/thing:5573
+ * https://sites.google.com/site/repraplogphase/calibration-of-your-reprap
+ * http://www.thingiverse.com/thing:298812
+*/
+
 // This configuration file contains the basic settings.
 // Advanced settings can be found in Configuration_adv.h
 // BASIC SETTINGS: select your board type, temperature sensor type, axis scaling, and endstop configuration
@@ -28,7 +42,8 @@
 #define STRING_URL "reprap.org"
 #define STRING_VERSION_CONFIG_H __DATE__ " " __TIME__ // build date and time
 #define STRING_CONFIG_H_AUTHOR "(none, default config)" // Who made the changes.
-#define STRING_SPLASH "v" STRING_VERSION " - " STRING_URL // will be shown during bootup
+#define STRING_SPLASH_LINE1 "v" STRING_VERSION // will be shown during bootup in line 1
+//#define STRING_SPLASH_LINE2 STRING_VERSION_CONFIG_H // will be shown during bootup in line2
 
 // SERIAL_PORT selects which serial port should be used for communication with the host.
 // This allows the connection of wireless adapters (for instance) to non-default port pins.
@@ -67,7 +82,7 @@
 // #define PS_DEFAULT_OFF
 
 //===========================================================================
-//=============================Thermal Settings  ============================
+//============================= Thermal Settings ============================
 //===========================================================================
 //
 //--NORMAL IS 4.7kohm PULLUP!-- 1kohm pullup can be used on hotend sensor, using correct resistor and table
@@ -103,11 +118,17 @@
 // 1010 is Pt1000 with 1k pullup (non standard)
 // 147 is Pt100 with 4k7 pullup
 // 110 is Pt100 with 1k pullup (non standard)
+// 999 is a Dummy Table. It will ALWAYS read 25C.. Use it for Testing or Development purposes. NEVER for production machine.
 
 #define TEMP_SENSOR_0 1
 #define TEMP_SENSOR_1 0
 #define TEMP_SENSOR_2 0
+<<<<<<< HEAD
 #define TEMP_SENSOR_BED 1
+=======
+#define TEMP_SENSOR_3 0
+#define TEMP_SENSOR_BED 0
+>>>>>>> upstream/development
 
 // This makes temp sensor 1 a redundant sensor for sensor 0. If the temperatures difference between these sensors is to high the print will be aborted.
 //#define TEMP_SENSOR_1_AS_REDUNDANT
@@ -124,6 +145,7 @@
 #define HEATER_0_MINTEMP 0
 #define HEATER_1_MINTEMP 5
 #define HEATER_2_MINTEMP 5
+#define HEATER_3_MINTEMP 5
 #define BED_MINTEMP 5
 
 // When temperature exceeds max temp, your heater will be switched off.
@@ -132,6 +154,7 @@
 #define HEATER_0_MAXTEMP 275
 #define HEATER_1_MAXTEMP 275
 #define HEATER_2_MAXTEMP 275
+#define HEATER_3_MAXTEMP 275
 #define BED_MAXTEMP 150
 
 // If your bed has low resistance e.g. .6 ohm and throws the fuse you can duty cycle it to reduce the
@@ -143,7 +166,11 @@
 //#define EXTRUDER_WATTS (12.0*12.0/6.7) //  P=I^2/R
 //#define BED_WATTS (12.0*12.0/1.1)      // P=I^2/R
 
-// PID settings:
+//===========================================================================
+//============================= PID Settings ================================
+//===========================================================================
+// PID Tuning Guide here: http://reprap.org/wiki/PID_Tuning
+
 // Comment the following line to disable PID and enable bang-bang.
 #define PIDTEMP
 #define BANG_MAX 255 // limits current to nozzle while in bang-bang mode; 255=full current
@@ -177,7 +204,9 @@
 //    #define  DEFAULT_Kd 440
 #endif // PIDTEMP
 
-// Bed Temperature Control
+//===========================================================================
+//============================= PID > Bed Temperature Control ===============
+//===========================================================================
 // Select PID or bang-bang with PIDTEMPBED. If bang-bang, BED_LIMIT_SWITCHING will enable hysteresis
 //
 // Uncomment this to enable PID on the bed. It uses the same frequency PWM as the extruder.
@@ -214,7 +243,6 @@
 #endif // PIDTEMPBED
 
 
-
 //this prevents dangerous Extruder moves, i.e. if the temperature is under the limit
 //can be software-disabled for whatever purposes by
 #define PREVENT_DANGEROUS_EXTRUDE
@@ -224,7 +252,10 @@
 #define EXTRUDE_MINTEMP 170
 #define EXTRUDE_MAXLENGTH (X_MAX_LENGTH+Y_MAX_LENGTH) //prevent extrusion of very large distances.
 
-/*================== Thermal Runaway Protection ==============================
+//===========================================================================
+//============================= Thermal Runaway Protection ==================
+//===========================================================================
+/*
 This is a feature to protect your printer from burn up in flames if it has
 a thermistor coming off place (this happened to a friend of mine recently and
 motivated me writing this feature).
@@ -259,11 +290,10 @@ your extruder heater takes 2 minutes to hit the target on heating.
 // Parameters for the bed heater
 //#define THERMAL_RUNAWAY_PROTECTION_BED_PERIOD 20 //in seconds
 //#define THERMAL_RUNAWAY_PROTECTION_BED_HYSTERESIS 2 // in degree Celsius
-//===========================================================================
 
 
 //===========================================================================
-//=============================Mechanical Settings===========================
+//============================= Mechanical Settings =========================
 //===========================================================================
 
 // Uncomment the following line to enable CoreXY kinematics
@@ -301,11 +331,6 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define DISABLE_MAX_ENDSTOPS
 //#define DISABLE_MIN_ENDSTOPS
 
-// Disable max endstops for compatibility with endstop checking routine
-#if defined(COREXY) && !defined(DISABLE_MAX_ENDSTOPS)
-  #define DISABLE_MAX_ENDSTOPS
-#endif
-
 // For Inverting Stepper Enable Pins (Active Low) use 0, Non Inverting (Active High) use 1
 #define X_ENABLE_ON 0
 #define Y_ENABLE_ON 0
@@ -319,12 +344,13 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define DISABLE_E false // For all extruders
 #define DISABLE_INACTIVE_EXTRUDER true //disable only inactive extruders and keep active extruder enabled
 
-#define INVERT_X_DIR true    // for Mendel set to false, for Orca set to true
+#define INVERT_X_DIR true     // for Mendel set to false, for Orca set to true
 #define INVERT_Y_DIR false    // for Mendel set to true, for Orca set to false
 #define INVERT_Z_DIR true     // for Mendel set to false, for Orca set to true
 #define INVERT_E0_DIR false   // for direct drive extruder v9 set to true, for geared extruder set to false
-#define INVERT_E1_DIR false    // for direct drive extruder v9 set to true, for geared extruder set to false
+#define INVERT_E1_DIR false   // for direct drive extruder v9 set to true, for geared extruder set to false
 #define INVERT_E2_DIR false   // for direct drive extruder v9 set to true, for geared extruder set to false
+#define INVERT_E3_DIR false   // for direct drive extruder v9 set to true, for geared extruder set to false
 
 // ENDSTOP SETTINGS:
 // Sets direction of endstops when homing; 1=MAX, -1=MIN
@@ -335,7 +361,7 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define min_software_endstops true // If true, axis won't move to coordinates less than HOME_POS.
 #define max_software_endstops true  // If true, axis won't move to coordinates greater than the defined lengths below.
 
-// Travel limits after homing
+// Travel limits after homing (units are in mm)
 #define X_MAX_POS 205
 #define X_MIN_POS 0
 #define Y_MAX_POS 205
@@ -346,7 +372,11 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define X_MAX_LENGTH (X_MAX_POS - X_MIN_POS)
 #define Y_MAX_LENGTH (Y_MAX_POS - Y_MIN_POS)
 #define Z_MAX_LENGTH (Z_MAX_POS - Z_MIN_POS)
+
+
+//===========================================================================
 //============================= Bed Auto Leveling ===========================
+//===========================================================================
 
 //#define ENABLE_AUTO_BED_LEVELING // Delete the comment to enable (remove // at the start of the line)
 #define Z_PROBE_REPEATABILITY_TEST  // If not commented out, Z-Probe Repeatability test will be included if Auto Bed Leveling is Enabled.
@@ -499,9 +529,10 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define DEFAULT_ZJERK                 0.4     // (mm/sec)
 #define DEFAULT_EJERK                 5.0    // (mm/sec)
 
-//===========================================================================
-//=============================Additional Features===========================
-//===========================================================================
+
+//=============================================================================
+//============================= Additional Features ===========================
+//=============================================================================
 
 // Custom M code points
 #define CUSTOM_M_CODES
@@ -532,12 +563,16 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #define ABS_PREHEAT_HPB_TEMP 100
 #define ABS_PREHEAT_FAN_SPEED 255   // Insert Value between 0 and 255
 
-//LCD and SD support
+//==============================LCD and SD support=============================
 
-// Character based displays can have different extended charsets. If you see strange or missing characters on yours - try an other definition below.
-#define DISPLAY_CHARSET_HD44870_JAPAN  //  "ääööüüß°"
-//#define DISPLAY_CHARSET_HD44870_WESTERN // with better support for European languages. "ÄäÖöÜüß°"
-//#define DISPLAY_CHARSET_DOGM // for full graphics display "ÄäÖÖÜÜß°"
+// Define your display language below. Replace (en) with your language code and uncomment.
+// en, pl, fr, de, es, ru, it, pt, pt-br, fi, an, nl, ca, eu
+// See also language.h
+//#define LANGUAGE_INCLUDE GENERATE_LANGUAGE_INCLUDE(en)
+
+// Character based displays can have different extended charsets.
+#define DISPLAY_CHARSET_HD44780_JAPAN     // "ääööüüß23°"
+//#define DISPLAY_CHARSET_HD44780_WESTERN // "ÄäÖöÜüß²³°" if you see a '~' instead of a 'arrow_right' at the right of submenuitems - this is the right one.
 
 //#define ULTRA_LCD  //general LCD support, also 16x2
 //#define DOGLCD  // Support for SPI LCD 128x64 (Controller ST7565R graphic Display Family)
@@ -554,6 +589,12 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 // The MaKr3d Makr-Panel with graphic controller and SD support
 // http://reprap.org/wiki/MaKr3d_MaKrPanel
 //#define MAKRPANEL
+
+// The Panucatt Devices Viki 2.0 and mini Viki with Graphic LCD
+// http://panucatt.com
+// ==> REMEMBER TO INSTALL U8glib to your ARDUINO library folder: http://code.google.com/p/u8glib/wiki/u8glib
+//#define VIKI2
+//#define miniVIKI
 
 // The RepRapDiscount Smart Controller (white PCB)
 // http://reprap.org/wiki/RepRapDiscount_Smart_Controller
@@ -587,6 +628,22 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
  #define NEWPANEL
  #define DEFAULT_LCD_CONTRAST 17
 #endif
+
+#if defined(miniVIKI) || defined(VIKI2)
+ #define ULTRA_LCD  //general LCD support, also 16x2
+ #define DOGLCD  // Support for SPI LCD 128x64 (Controller ST7565R graphic Display Family)
+ #define ULTIMAKERCONTROLLER //as available from the Ultimaker online store.
+ 
+  #ifdef miniVIKI
+   #define DEFAULT_LCD_CONTRAST 95
+  #else
+   #define DEFAULT_LCD_CONTRAST 40
+  #endif
+  
+ #define ENCODER_PULSES_PER_STEP 4
+ #define ENCODER_STEPS_PER_MENU_ITEM 1
+#endif
+
 
 #if defined (REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER)
  #define DOGLCD
@@ -684,7 +741,7 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
   #define SDSUPPORT
   #define ULTRA_LCD
   #ifdef DOGLCD // Change number of lines to match the DOG graphic display
-    #define LCD_WIDTH 20
+    #define LCD_WIDTH 22
     #define LCD_HEIGHT 5
   #else
     #define LCD_WIDTH 20
@@ -693,7 +750,7 @@ const bool Z_MAX_ENDSTOP_INVERTING = true; // set to true to invert the logic of
 #else //no panel but just LCD
   #ifdef ULTRA_LCD
   #ifdef DOGLCD // Change number of lines to match the 128x64 graphics display
-    #define LCD_WIDTH 20
+    #define LCD_WIDTH 22
     #define LCD_HEIGHT 5
   #else
     #define LCD_WIDTH 16
